@@ -10,7 +10,7 @@
     <!-- 🔹 Discussion principale -->
     <b-card class="mb-4 shadow-sm">
       <b-card-body>
-        <h4 class="fw-bold text-primary mb-3">{{ discussion.title }}</h4>
+        <h4 v-if="discussion" class="fw-bold text-primary mb-3">{{ discussion.title }}</h4>
         <p class="mb-3">{{ discussion.content }}</p>
         <div class="d-flex justify-content-between align-items-center">
           <small class="text-muted">
@@ -19,6 +19,27 @@
             | <i class="fas fa-clock ms-2 me-1"></i> {{ formatDate(discussion.createdAt) }}
           </small>
           <b-badge variant="info">{{ replies.length }} réponse(s)</b-badge>
+        </div>
+        
+        <!-- Actions Discussion -->
+        <div class="d-flex justify-content-end mt-3 border-top pt-2" v-if="user">
+          <b-button 
+            v-if="isModerator" 
+            variant="outline-danger" 
+            size="sm" 
+            class="me-2"
+            @click="handleDeleteDiscussion"
+          >
+            <i class="fas fa-trash-alt me-2"></i>Supprimer
+          </b-button>
+          
+          <b-button 
+            variant="outline-warning" 
+            size="sm"
+            @click="handleReportDiscussion"
+          >
+            <i class="fas fa-flag me-2"></i>Signaler
+          </b-button>
         </div>
       </b-card-body>
     </b-card>
@@ -84,6 +105,7 @@
         v-for="r in replies"
         :key="r.id"
         :reply="r"
+        :currentUser="user"
         @updateReply="handleUpdateReply"
         @deleteReply="handleDeleteReply"
         @reportReply="handleReportReply"
@@ -97,19 +119,15 @@
       <p class="text-muted mb-0">Soyez le premier à répondre !</p>
     </b-card>
 
-    <!-- 🔹 Debug info (à supprimer) -->
-    <b-card v-if="debugInfo" class="mt-4 bg-light">
-      <pre class="mb-0 small">{{ debugInfo }}</pre>
-    </b-card>
 
   </b-container>
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted, computed } from 'vue'
-import { useRoute } from 'vue-router'
+import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { useUser } from '../composables/getUser.js'
-import { getDiscussions } from '../composables/useDiscussions.js'
+import { getDiscussions, reportDiscussion, deleteDiscussion } from '../composables/useDiscussions.js'
 import {
   listenReplies,
   addReply,
@@ -120,15 +138,23 @@ import {
 import ReplyCard from '../components/ReplyCard.vue'
 
 const route = useRoute()
-const discussionId = route.params.id
+const router = useRouter()
+const discussionId = computed(() => route.params.id)
 const { user } = useUser()
 
-const discussion = ref({})
+const discussion = ref({
+  id: null,
+  title: '',
+  content: '',
+  authorName: '',
+  category: '',
+  createdAt: null
+})
+
 const replies = ref([])
 const replyContent = ref('')
 const isSubmitting = ref(false)
 const isRefreshing = ref(false)
-const debugInfo = ref(null)
 let unsubscribe = null
 
 // Computed properties
@@ -138,15 +164,21 @@ const canSubmit = computed(() => {
          !isSubmitting.value
 })
 
+const isModerator = computed(() => {
+  return user.value && user.value.role === 'moderator'
+})
+
 // 🔹 Charger la discussion
 const fetchDiscussion = async () => {
+  if (!discussionId.value) return
+
   try {
-    console.log('Chargement discussion ID:', discussionId)
+    console.log('Chargement discussion ID:', discussionId.value)
     const all = await getDiscussions()
-    const found = all.find(d => d.id === discussionId)
+    const found = all.find(d => d.id === discussionId.value)
     
     if (!found) {
-      console.error('Discussion non trouvée:', discussionId)
+      console.error('Discussion non trouvée:', discussionId.value)
       discussion.value = { title: 'Discussion non trouvée', content: '' }
       return
     }
@@ -164,26 +196,19 @@ const setupRealtimeReplies = () => {
   if (unsubscribe) {
     unsubscribe()
   }
+
+  if (!discussionId.value) return
   
-  console.log('Configuration écoute réponses pour:', discussionId)
+  console.log('Configuration écoute réponses pour:', discussionId.value)
   
-  unsubscribe = listenReplies(discussionId, (data) => {
+  unsubscribe = listenReplies(discussionId.value, (data) => {
     console.log('Réponses reçues:', data.length)
     replies.value = data
     isRefreshing.value = false
-    
-    // Debug info
-    debugInfo.value = {
-      discussionId,
-      userConnected: !!user.value,
-      userId: user.value?.uid,
-      repliesCount: data.length,
-      replies: data.map(r => ({
-        id: r.id,
-        authorId: r.authorId,
-        content: r.content.substring(0, 50) + '...'
-      }))
-    }
+  }, (error) => {
+    console.error('Erreur realtime:', error)
+    isRefreshing.value = false
+    alert('Erreur de chargement des réponses.')
   })
 }
 
@@ -203,15 +228,19 @@ const submitReply = async () => {
   isSubmitting.value = true
   
   try {
+    if (!discussionId.value) {
+      throw new Error('ID de discussion manquant')
+    }
+
     console.log('Envoi réponse avec:', {
-      threadId: discussionId,
+      threadId: discussionId.value,
       authorId: user.value.uid,
       authorName: user.value.displayName || user.value.email,
       contentLength: content.length
     })
     
     const replyData = {
-      threadId: discussionId,
+      threadId: discussionId.value,
       content: content,
       authorId: user.value.uid,
       authorName: user.value.displayName || user.value.email || 'Utilisateur',
@@ -295,11 +324,47 @@ const handleReportReply = async (id) => {
   }
 }
 
+
+
+// 🔹 Supprimer la discussion (Modérateur)
+const handleDeleteDiscussion = async () => {
+  if (confirm('Êtes-vous sûr de vouloir supprimer cette discussion ? Cette action est irréversible.')) {
+    try {
+      await deleteDiscussion(discussionId.value)
+      router.push('/discussions')
+    } catch (error) {
+      console.error('Erreur suppression discussion:', error)
+      alert('Erreur: ' + error.message)
+    }
+  }
+}
+
+// 🔹 Signaler la discussion
+const handleReportDiscussion = async () => {
+  if (confirm('Voulez-vous signaler cette discussion comme inappropriée ?')) {
+    try {
+      await reportDiscussion(discussionId.value)
+      alert('Discussion signalée. Merci.')
+    } catch (error) {
+      console.error('Erreur signalement discussion:', error)
+      alert('Erreur: ' + error.message)
+    }
+  }
+}
+
 // 🔹 Rafraîchir les réponses
 const refreshReplies = () => {
   console.log('Rafraîchissement manuel des réponses')
   isRefreshing.value = true
   setupRealtimeReplies()
+  
+  // Sécurité : forcer l'arrêt du spinner après 5s
+  setTimeout(() => {
+    if (isRefreshing.value) {
+      console.warn('Timeout rafraîchissement')
+      isRefreshing.value = false
+    }
+  }, 5000)
 }
 
 // 🔹 Formater la date
@@ -322,9 +387,18 @@ const formatDate = (timestamp) => {
 
 // 🔹 Initialisation
 onMounted(async () => {
-  console.log('DiscussionDetails monté, ID:', discussionId)
+  console.log('DiscussionDetails monté, ID:', discussionId.value)
   await fetchDiscussion()
   setupRealtimeReplies()
+})
+
+// 🔹 Surveiller les changements de route (navigation entre discussions)
+watch(discussionId, async (newId) => {
+  if (newId) {
+    console.log('Changement de discussion:', newId)
+    await fetchDiscussion()
+    setupRealtimeReplies()
+  }
 })
 
 // 🔹 Nettoyage

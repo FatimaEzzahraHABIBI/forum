@@ -15,7 +15,7 @@ import ForgotPassword from '../components/ForgotPassword.vue'
 const routes = [
   { path: '/', component: Welcome },
   { path: '/discussions', component: Discussions },
-  { path: '/discussion/:id', component: DiscussionDetails },
+  { path: '/discussions/:id', component: DiscussionDetails },
   { path: '/create', component: CreateDiscussion, meta: { requiresAuth: true } },
   { path: '/profile', component: Profile, meta: { requiresAuth: true } },
   { path: '/moderation', component: Moderation, meta: { requiresAuth: true, requiresModerator: true } },

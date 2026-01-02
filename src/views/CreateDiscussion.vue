@@ -38,14 +38,20 @@ const categories = [
 ]
 
 const handleSubmit = async () => {
-  if (!auth.currentUser) return alert('Vous devez être connecté')
-  await createDiscussion({
+  if (!auth.currentUser) {
+    alert('Vous devez être connecté')
+    return
+  }
+
+  const id = await createDiscussion({
     title: title.value,
     content: content.value,
     category: category.value,
     authorId: auth.currentUser.uid,
     authorName: auth.currentUser.displayName || 'Utilisateur'
   })
-  router.push('/discussions')
+
+  router.push(`/discussions/${id}`)
 }
+
 </script>
