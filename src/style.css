@@ -1,0 +1,86 @@
+/* Container du formulaire (optionnel mais recommandé) */
+form {
+  max-width: 420px;
+  margin: 3em auto;
+  padding: 2em;
+  background: #ffffff;
+  border-radius: 14px;
+  box-shadow: 0 10px 30px rgba(37, 99, 235, 0.15);
+}
+
+/* Inputs */
+input {
+  display: block;
+  width: 100%;
+  margin-bottom: 1.2em;
+  padding: 0.9em 1em;
+  border-radius: 10px;
+  border: 1.5px solid #dbeafe;
+  background-color: #f9fbff;
+  color: #374151;
+  font-size: 1em;
+  transition: all 0.25s ease;
+}
+
+input::placeholder {
+  color: #9ca3af;
+}
+
+input:focus {
+  outline: none;
+  border-color: #2563eb;
+  background-color: #ffffff;
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.15);
+}
+
+/* Bouton */
+form button {
+  width: 100%;
+  padding: 0.9em;
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  border: none;
+  border-radius: 10px;
+  color: #ffffff;
+  font-size: 1em;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+form button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(37, 99, 235, 0.3);
+}
+
+/* Messages */
+.error {
+  color: #dc2626;
+  font-size: 0.85em;
+  margin-top: -0.5em;
+  margin-bottom: 0.8em;
+}
+
+.success {
+  color: #16a34a;
+  font-size: 0.85em;
+  margin-top: -0.5em;
+  margin-bottom: 0.8em;
+}
+
+/* Forgot password */
+.forgot-password-link {
+  display: block;
+  margin-top: 0.8em;
+  text-align: center;
+  color: #2563eb;
+  font-size: 0.9em;
+  font-weight: 500;
+  text-decoration: none;
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.forgot-password-link:hover {
+  color: #1d4ed8;
+  text-decoration: underline;
+}
